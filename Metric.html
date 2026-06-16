@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CGF · METRIC ENGINE v2 · PRE-DEBUT</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#00010a; overflow:hidden; font-family:'Courier New',monospace; color:#ccc; }
+canvas#c { display:block; width:100vw; height:100vh; }
+
+/* ── PANELS ── */
+.panel {
+  position:fixed; background:rgba(0,4,16,0.92);
+  border:1px solid rgba(40,100,180,0.2);
+  font-size:9px; letter-spacing:0.12em; line-height:1.8;
+}
+
+/* Title */
+#title {
+  top:16px; left:20px; padding:10px 14px;
+  border-color:rgba(40,160,255,0.2);
+  pointer-events:none;
+}
+#title .t1 { font-size:11px; color:#4af; letter-spacing:0.3em; }
+#title .t2 { font-size:8px;  color:#334; margin-top:2px; }
+#title .t3 { font-size:8px;  color:#f84; margin-top:1px; opacity:0.7; }
+
+/* Axis legend */
+#axes-legend {
+  top:16px; left:50%; transform:translateX(-50%);
+  padding:8px 20px; display:flex; gap:24px; align-items:center;
+  pointer-events:none; border-color:rgba(255,255,255,0.06);
+}
+.ax { display:flex; align-items:center; gap:6px; }
+.ax-dot { width:8px; height:8px; border-radius:50%; }
+.ax-label { font-size:8px; letter-spacing:0.2em; }
+
+/* Node info panel */
+#info {
+  top:16px; right:20px; width:230px; padding:14px 16px;
+  opacity:0; transition:opacity 0.25s; pointer-events:none;
+}
+#info.show { opacity:1; }
+#info .sec-label { font-size:7px; color:#446; letter-spacing:0.2em; margin-bottom:2px; }
+#info .sec-val   { font-size:10px; color:#ccc; margin-bottom:10px; }
+#info .triple-display { font-size:11px; color:#fa4; letter-spacing:0.08em; margin-bottom:10px; }
+#info .conf-real    { color:#4f4; font-size:8px; letter-spacing:0.15em; }
+#info .conf-est     { color:#f84; font-size:8px; letter-spacing:0.15em; }
+#info .dist-block   { margin-top:8px; padding-top:8px; border-top:1px solid #0a1a2a; }
+#info .neighbor-row { display:flex; justify-content:space-between; margin-top:3px; }
+#info .n-id  { color:#79c; }
+#info .n-dist{ color:#446; }
+
+/* Data entry */
+#entry {
+  bottom:20px; right:20px; width:280px; padding:14px 16px;
+  border-color:rgba(40,160,80,0.25);
+}
+#entry .e-title { font-size:9px; color:#4d8; letter-spacing:0.2em; margin-bottom:12px; }
+#entry .e-row   { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+#entry .e-lbl   { font-size:8px; color:#446; width:28px; flex-shrink:0; }
+#entry input {
+  flex:1; background:#010810; border:1px solid #0a2a18;
+  color:#4d8; font-family:'Courier New',monospace; font-size:10px;
+  padding:4px 7px; outline:none; letter-spacing:0.1em;
+}
+#entry input:focus { border-color:#2a8a4a; }
+#entry select {
+  flex:1; background:#010810; border:1px solid #0a2a18;
+  color:#4d8; font-family:'Courier New',monospace; font-size:9px;
+  padding:4px 7px; outline:none;
+}
+#entry .e-btn {
+  width:100%; margin-top:6px; padding:7px;
+  background:rgba(40,160,80,0.12); border:1px solid rgba(40,160,80,0.3);
+  color:#4d8; font-family:'Courier New',monospace; font-size:9px;
+  letter-spacing:0.2em; cursor:pointer; pointer-events:all;
+  transition:background 0.2s;
+}
+#entry .e-btn:hover { background:rgba(40,160,80,0.22); }
+#entry .e-msg { font-size:8px; color:#4d8; margin-top:6px; min-height:12px; opacity:0.7; }
+#entry .e-count { font-size:8px; color:#446; margin-top:4px; }
+
+/* Stats bar */
+#stats {
+  bottom:20px; left:20px; padding:10px 14px;
+  pointer-events:none; line-height:2;
+}
+#stats .s-row { display:flex; gap:16px; }
+#stats .s-item { }
+#stats .s-label { color:#334; font-size:7px; }
+#stats .s-val   { color:#4af; font-size:10px; }
+
+/* Camera coords */
+#cam {
+  bottom:20px; left:50%; transform:translateX(-50%);
+  padding:7px 14px; pointer-events:none;
+  border-color:rgba(255,255,255,0.05);
+}
+#cam span { color:#224; margin:0 8px; }
+#cam .cv  { color:#2af; }
+
+/* Mode toggle */
+#mode-btn {
+  position:fixed; top:16px; right:268px;
+  padding:8px 14px; background:rgba(0,4,16,0.92);
+  border:1px solid rgba(40,100,180,0.2);
+  color:#446; font-family:'Courier New',monospace;
+  font-size:8px; letter-spacing:0.2em; cursor:pointer;
+  pointer-events:all; transition:all 0.2s; z-index:20;
+}
+#mode-btn:hover, #mode-btn.active { color:#4af; border-color:rgba(40,160,255,0.4); }
+
+/* Confidence badge */
+.badge-real { color:#4f4; }
+.badge-est  { color:#f84; }
+
+/* Crosshair */
+#xhair {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:16px; height:16px; pointer-events:none; opacity:0.2;
+}
+#xhair::before,#xhair::after {
+  content:''; position:absolute; background:#4af;
+}
+#xhair::before { width:1px; height:100%; left:50%; top:0; }
+#xhair::after  { width:100%; height:1px; top:50%; left:0; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<!-- Title -->
+<div id="title" class="panel">
+  <div class="t1">CGF · METRIC ENGINE · v2</div>
+  <div class="t2">COGNITIVE GLYPH FRAMEWORK · D/T/R COORDINATE SPACE</div>
+  <div class="t3">[PRE-DEBUT] · PRIMARY LEDGER: PHYSICAL CARDS · u/Cyrus9811</div>
+</div>
+
+<!-- Axis legend -->
+<div id="axes-legend" class="panel">
+  <div class="ax"><div class="ax-dot" style="background:#f55"></div><div class="ax-label" style="color:#f88">X = D  FRACTAL DIM</div></div>
+  <div class="ax"><div class="ax-dot" style="background:#4f4"></div><div class="ax-label" style="color:#8f8">Y = R  RECURSION</div></div>
+  <div class="ax"><div class="ax-dot" style="background:#55f"></div><div class="ax-label" style="color:#88f">Z = T  TOPOLOGY</div></div>
+  <div class="ax"><div class="ax-dot" style="background:#fff; opacity:0.4"></div><div class="ax-label" style="color:#446">● REAL  ○ EST</div></div>
+</div>
+
+<!-- Node info -->
+<div id="info" class="panel">
+  <div class="sec-label">NODE ID</div>
+  <div class="sec-val" id="i-id">—</div>
+  <div class="triple-display" id="i-triple">( D:— · T:— · R:— )</div>
+  <div id="i-conf"></div>
+  <div class="dist-block">
+    <div class="sec-label">NEAREST NEIGHBORS  ·  METRIC DISTANCE</div>
+    <div id="i-neighbors"></div>
+  </div>
+  <div class="dist-block" id="i-sel-dist" style="display:none">
+    <div class="sec-label">DISTANCE TO PINNED NODE</div>
+    <div id="i-dist-val" style="color:#fa4; font-size:11px;"></div>
+  </div>
+</div>
+
+<!-- Data entry -->
+<div id="entry" class="panel">
+  <div class="e-title">▸ INGEST REAL TRIPLE FROM CARD</div>
+  <div class="e-row">
+    <span class="e-lbl">ID</span>
+    <input id="e-id" type="text" placeholder="CGF-001" maxlength="8"/>
+  </div>
+  <div class="e-row">
+    <span class="e-lbl">D</span>
+    <input id="e-d" type="number" placeholder="1.00–2.00" step="0.01" min="1" max="2"/>
+  </div>
+  <div class="e-row">
+    <span class="e-lbl">T</span>
+    <select id="e-t">
+      <option value="">— topology —</option>
+      <option>open</option><option>closed</option>
+      <option>nested-open</option><option>nested-closed</option>
+      <option>branching</option><option>toroidal</option>
+      <option>radial</option><option>linear</option>
+      <option>spiral</option><option>compound</option>
+    </select>
+  </div>
+  <div class="e-row">
+    <span class="e-lbl">R</span>
+    <input id="e-r" type="number" placeholder="1–5" step="1" min="1" max="5"/>
+  </div>
+  <button class="e-btn" id="e-submit">COMMIT TO METRIC SPACE</button>
+  <div class="e-msg" id="e-msg"></div>
+  <div class="e-count" id="e-count">REAL: 0 · ESTIMATED: 176</div>
+</div>
+
+<!-- Stats -->
+<div id="stats" class="panel">
+  <div class="s-row">
+    <div class="s-item"><div class="s-label">TOTAL NODES</div><div class="s-val" id="st-total">176</div></div>
+    <div class="s-item"><div class="s-label">REAL DATA</div><div class="s-val badge-real" id="st-real">0</div></div>
+    <div class="s-item"><div class="s-label">ESTIMATED</div><div class="s-val badge-est" id="st-est">176</div></div>
+    <div class="s-item"><div class="s-label">COMPLETION</div><div class="s-val" id="st-pct">0%</div></div>
+  </div>
+</div>
+
+<!-- Camera coords -->
+<div id="cam" class="panel">
+  <span>X</span><span class="cv" id="cx">0.000</span>
+  <span>Y</span><span class="cv" id="cy">0.000</span>
+  <span>Z</span><span class="cv" id="cz">0.000</span>
+</div>
+
+<!-- Mode toggle -->
+<button id="mode-btn">PIN MODE: OFF</button>
+
+<div id="xhair"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// CGF METRIC ENGINE v2
+// Axes: X = D (fractal dimension 1.0–2.0)
+//        Y = R (recursion depth 1–5)
+//        Z = T (topology class ordinal 1–10)
+// Node confidence: REAL (solid) = from physical card | ESTIMATED (wire) = placeholder
+// ══════════════════════════════════════════════════════════════════════════════
+
+const TOPO_MAP = {
+  'open':1,'closed':2,'nested-open':3,'nested-closed':4,
+  'branching':5,'toroidal':6,'radial':7,'linear':8,'spiral':9,'compound':10
+};
+const TOPO_LIST = Object.keys(TOPO_MAP);
+
+// Scale factors so all axes are visually comparable in 3D
+const SCALE = { D: 12, T: 1.4, R: 2.8 };
+
+function tripleToPos(D, T, R) {
+  const tOrd = typeof T === 'string' ? TOPO_MAP[T] || 5 : T;
+  return new THREE.Vector3(
+    (D - 1.5) * SCALE.D,          // center D around 0
+    (R - 3)   * SCALE.R,          // center R around 0
+    (tOrd - 5.5) * SCALE.T        // center T around 0
+  );
+}
+
+// ── COLOR by topology class (the visual identity) ────────────────────────────
+const TOPO_COLORS = {
+  'open':        0x22aaff,
+  'closed':      0xff5533,
+  'nested-open': 0x33ddaa,
+  'nested-closed':0xff3388,
+  'branching':   0xffaa22,
+  'toroidal':    0xaa44ff,
+  'radial':      0x44ffaa,
+  'linear':      0xffff44,
+  'spiral':      0xff44aa,
+  'compound':    0xffffff,
+};
+
+// ── SEEDED RANDOM ────────────────────────────────────────────────────────────
+function mkRng(seed) {
+  let s = seed >>> 0;
+  return () => { s = Math.imul(s ^ (s >>> 15), s | 1); s ^= s + Math.imul(s ^ (s >>> 7), s | 61); return ((s ^ (s >>> 14)) >>> 0) / 4294967296; };
+}
+const rng = mkRng(0xCF256);
+
+// ── NODE CORPUS (176 estimated nodes filling the metric space) ───────────────
+const corpus = [];
+
+// Seed estimated nodes distributed across the real D/T/R space
+for (let i = 0; i < 176; i++) {
+  const D  = parseFloat((1.0 + rng() * 1.0).toFixed(2));
+  const T  = TOPO_LIST[Math.floor(rng() * TOPO_LIST.length)];
+  const R  = Math.ceil(rng() * 5);
+  corpus.push({
+    id: `CGF-${String(i+1).padStart(3,'0')}`,
+    triple: { D, T, R },
+    real: false,   // estimated — not from a physical card
+    mesh: null,
+    wireMesh: null,
+    glowMesh: null,
+  });
+}
+
+// ── THREE.JS INIT ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x00010a, 1);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x00010a, 0.008);
+
+const camera = new THREE.PerspectiveCamera(52, window.innerWidth/window.innerHeight, 0.1, 400);
+camera.position.set(-18, 10, 28);
+camera.lookAt(0,0,0);
+
+// ── LIGHTING ──────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x0a1525, 3));
+const pl1 = new THREE.PointLight(0x2244ff, 2, 80); pl1.position.set(8,12,8); scene.add(pl1);
+const pl2 = new THREE.PointLight(0xff4422, 1.5, 60); pl2.position.set(-8,-8,-12); scene.add(pl2);
+const pl3 = new THREE.PointLight(0x22ffaa, 1, 50); pl3.position.set(0,10,-15); scene.add(pl3);
+
+// ── AXIS LINES ────────────────────────────────────────────────────────────────
+function axisLine(from, to, color, opacity=0.5) {
+  const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...from), new THREE.Vector3(...to)]);
+  const m = new THREE.LineBasicMaterial({ color, transparent:true, opacity });
+  return new THREE.Line(g, m);
+}
+// D axis (X) — red
+scene.add(axisLine([-8,0,0],[8,0,0], 0xff3333, 0.35));
+// R axis (Y) — green
+scene.add(axisLine([0,-8,0],[0,8,0], 0x33ff44, 0.35));
+// T axis (Z) — blue
+scene.add(axisLine([0,0,-8],[0,0,8], 0x4444ff, 0.35));
+
+// Axis tick marks for D (1.0 to 2.0, step 0.25)
+for (let d = 1.0; d <= 2.0; d += 0.25) {
+  const x = (d - 1.5) * SCALE.D;
+  const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,-0.3,0), new THREE.Vector3(x,0.3,0)]);
+  scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color:0x553333, opacity:0.4, transparent:true })));
+}
+// R ticks (1–5)
+for (let r = 1; r <= 5; r++) {
+  const y = (r - 3) * SCALE.R;
+  const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.3,y,0), new THREE.Vector3(0.3,y,0)]);
+  scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color:0x335533, opacity:0.4, transparent:true })));
+}
+// T ticks (1–10)
+for (let t = 1; t <= 10; t++) {
+  const z = (t - 5.5) * SCALE.T;
+  const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.3,0,z), new THREE.Vector3(0.3,0,z)]);
+  scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color:0x333355, opacity:0.4, transparent:true })));
+}
+
+// Space dust
+const dustG = new THREE.BufferGeometry();
+const dp = new Float32Array(3000*3);
+for (let i=0; i<dp.length; i++) dp[i] = (Math.random()-0.5)*200;
+dustG.setAttribute('position', new THREE.BufferAttribute(dp,3));
+scene.add(new THREE.Points(dustG, new THREE.PointsMaterial({ color:0x112233, size:0.05, transparent:true, opacity:0.3 })));
+
+// ── GEOMETRY FACTORIES ────────────────────────────────────────────────────────
+const solidGeo = new THREE.SphereGeometry(0.22, 10, 10);
+const wireGeo  = new THREE.SphereGeometry(0.22, 8, 8);
+const glowGeo  = new THREE.SphereGeometry(0.40, 8, 8);
+
+function buildNodeMeshes(node) {
+  const col = TOPO_COLORS[node.triple.T] || 0xffffff;
+  const pos = tripleToPos(node.triple.D, node.triple.T, node.triple.R);
+
+  if (node.real) {
+    // REAL: solid sphere, brighter emissive
+    const mat = new THREE.MeshStandardMaterial({
+      color: col, emissive: col, emissiveIntensity: 0.5,
+      roughness: 0.2, metalness: 0.6,
+    });
+    node.mesh = new THREE.Mesh(solidGeo, mat);
+    node.mesh.scale.setScalar(1.3); // real nodes slightly larger
+  } else {
+    // ESTIMATED: wireframe sphere, dimmer
+    const mat = new THREE.MeshBasicMaterial({
+      color: col, wireframe: true, transparent: true, opacity: 0.35,
+    });
+    node.mesh = new THREE.Mesh(wireGeo, mat);
+  }
+
+  node.mesh.position.copy(pos);
+  node.mesh.userData.nodeId = node.id;
+  scene.add(node.mesh);
+
+  // Glow halo (subtle)
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: col, transparent:true,
+    opacity: node.real ? 0.10 : 0.04,
+    side: THREE.BackSide,
+  });
+  node.glowMesh = new THREE.Mesh(glowGeo, glowMat);
+  node.glowMesh.position.copy(pos);
+  scene.add(node.glowMesh);
+}
+
+// Build all initial meshes
+corpus.forEach(buildNodeMeshes);
+
+// ── EDGES (computed from metric distance) ─────────────────────────────────────
+const edgeGroup = new THREE.Group();
+scene.add(edgeGroup);
+
+function rebuildEdges() {
+  while (edgeGroup.children.length) edgeGroup.remove(edgeGroup.children[0]);
+
+  for (let i = 0; i < corpus.length; i++) {
+    const a = corpus[i];
+    const posA = a.mesh.position;
+    // Connect to 2 nearest metric neighbors
+    const dists = corpus
+      .map((b,j) => ({ j, d: posA.distanceTo(b.mesh.position) }))
+      .filter(x => x.j !== i)
+      .sort((a,b) => a.d - b.d)
+      .slice(0, a.real ? 3 : 2);
+
+    for (const { j } of dists) {
+      if (j <= i) continue; // avoid double edges
+      const b = corpus[j];
+      const geo = new THREE.BufferGeometry().setFromPoints([posA, b.mesh.position]);
+      const bothReal = a.real && b.real;
+      const mat = new THREE.LineBasicMaterial({
+        color: bothReal ? 0x4af4af : 0x0a1a2a,
+        transparent: true,
+        opacity: bothReal ? 0.4 : 0.08,
+      });
+      edgeGroup.add(new THREE.Line(geo, mat));
+    }
+  }
+}
+rebuildEdges();
+
+// ── METRIC DISTANCE (normalized) ─────────────────────────────────────────────
+function metricDist(a, b) {
+  const dD = (a.triple.D - b.triple.D);
+  const dT = ((TOPO_MAP[a.triple.T]||5) - (TOPO_MAP[b.triple.T]||5)) / 9;
+  const dR = (a.triple.R - b.triple.R) / 4;
+  return Math.sqrt(dD*dD + dT*dT + dR*dR);
+}
+
+function nearestNeighbors(node, k=3) {
+  return corpus
+    .filter(n => n.id !== node.id)
+    .map(n => ({ id:n.id, d: metricDist(node, n), real:n.real }))
+    .sort((a,b) => a.d - b.d)
+    .slice(0, k);
+}
+
+// ── STATS UPDATE ──────────────────────────────────────────────────────────────
+function updateStats() {
+  const realCount = corpus.filter(n => n.real).length;
+  const est = corpus.length - realCount;
+  document.getElementById('st-total').textContent = corpus.length;
+  document.getElementById('st-real').textContent  = realCount;
+  document.getElementById('st-est').textContent   = est;
+  document.getElementById('st-pct').textContent   = Math.round((realCount/256)*100) + '%';
+  document.getElementById('e-count').textContent  = `REAL: ${realCount} · ESTIMATED: ${est}`;
+}
+updateStats();
+
+// ── DATA ENTRY ────────────────────────────────────────────────────────────────
+document.getElementById('e-submit').addEventListener('click', () => {
+  const idVal = document.getElementById('e-id').value.trim().toUpperCase();
+  const dVal  = parseFloat(document.getElementById('e-d').value);
+  const tVal  = document.getElementById('e-t').value;
+  const rVal  = parseInt(document.getElementById('e-r').value);
+  const msg   = document.getElementById('e-msg');
+
+  if (!idVal || isNaN(dVal) || !tVal || isNaN(rVal)) {
+    msg.textContent = 'ALL FIELDS REQUIRED'; msg.style.color = '#f44'; return;
+  }
+  if (dVal < 1 || dVal > 2) { msg.textContent = 'D MUST BE 1.00–2.00'; msg.style.color='#f44'; return; }
+  if (rVal < 1 || rVal > 5) { msg.textContent = 'R MUST BE 1–5';       msg.style.color='#f44'; return; }
+
+  // Find existing node or create new
+  let node = corpus.find(n => n.id === idVal);
+  if (node) {
+    // Update in place — snap to real position
+    scene.remove(node.mesh);
+    scene.remove(node.glowMesh);
+    node.triple = { D: dVal, T: tVal, R: rVal };
+    node.real = true;
+    buildNodeMeshes(node);
+    msg.textContent = `↑ UPDATED ${idVal} → REAL`; msg.style.color='#4f4';
+  } else {
+    // Add new real node
+    const newNode = { id: idVal, triple:{ D:dVal, T:tVal, R:rVal }, real:true, mesh:null, glowMesh:null };
+    corpus.push(newNode);
+    buildNodeMeshes(newNode);
+    msg.textContent = `+ COMMITTED ${idVal} TO SPACE`; msg.style.color='#4f4';
+  }
+
+  rebuildEdges();
+  updateStats();
+
+  // Clear inputs
+  document.getElementById('e-id').value = '';
+  document.getElementById('e-d').value  = '';
+  document.getElementById('e-t').value  = '';
+  document.getElementById('e-r').value  = '';
+
+  setTimeout(() => msg.textContent = '', 3000);
+});
+
+// ── ORBIT CONTROLS ────────────────────────────────────────────────────────────
+let drag = false, pm = {x:0,y:0};
+let sph = { th:-0.5, ph:1.15, r:32 };
+let tSph = {...sph};
+const orbitC = new THREE.Vector3(0,0,0);
+const tOrbitC = new THREE.Vector3(0,0,0);
+
+canvas.addEventListener('mousedown', e => { drag=true; pm={x:e.clientX,y:e.clientY}; });
+window.addEventListener('mouseup', () => drag=false);
+window.addEventListener('mousemove', e => {
+  if (!drag) return;
+  tSph.th -= (e.clientX - pm.x) * 0.005;
+  tSph.ph  = Math.max(0.15, Math.min(Math.PI-0.15, tSph.ph + (e.clientY-pm.y)*0.005));
+  pm = {x:e.clientX, y:e.clientY};
+});
+canvas.addEventListener('wheel', e => {
+  tSph.r = Math.max(4, Math.min(100, tSph.r + e.deltaY * 0.03));
+}, { passive:true });
+
+// ── RAYCASTING / HOVER ────────────────────────────────────────────────────────
+const ray = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let hovered = null;
+let pinned  = null;
+let flyTarget = null;
+let pinMode = false;
+
+window.addEventListener('mousemove', e => {
+  mouse.x =  (e.clientX/window.innerWidth)*2-1;
+  mouse.y = -(e.clientY/window.innerHeight)*2+1;
+});
+
+document.getElementById('mode-btn').addEventListener('click', () => {
+  pinMode = !pinMode;
+  const btn = document.getElementById('mode-btn');
+  btn.textContent = `PIN MODE: ${pinMode ? 'ON' : 'OFF'}`;
+  btn.classList.toggle('active', pinMode);
+  if (!pinMode) {
+    pinned = null;
+    document.getElementById('i-sel-dist').style.display = 'none';
+  }
+});
+
+canvas.addEventListener('dblclick', () => {
+  if (hovered) {
+    if (pinMode) {
+      pinned = hovered;
+    } else {
+      flyTarget = hovered.mesh.position.clone();
+      tOrbitC.copy(flyTarget);
+    }
+  }
+});
+
+function showInfo(node) {
+  const panel = document.getElementById('info');
+  panel.classList.add('show');
+  document.getElementById('i-id').textContent = node.id;
+  document.getElementById('i-triple').textContent =
+    `( D:${node.triple.D} · T:${node.triple.T} · R:${node.triple.R} )`;
+  document.getElementById('i-conf').innerHTML = node.real
+    ? '<span class="conf-real">● REAL — FROM PHYSICAL CARD</span>'
+    : '<span class="conf-est">○ ESTIMATED — PLACEHOLDER</span>';
+
+  const nn = nearestNeighbors(node, 3);
+  document.getElementById('i-neighbors').innerHTML = nn.map(n =>
+    `<div class="neighbor-row">
+      <span class="n-id">${n.id} ${n.real ? '●' : '○'}</span>
+      <span class="n-dist">${n.d.toFixed(4)}</span>
+    </div>`
+  ).join('');
+
+  // Distance to pinned
+  if (pinned && pinned.id !== node.id) {
+    const d = metricDist(node, pinned);
+    document.getElementById('i-sel-dist').style.display = 'block';
+    document.getElementById('i-dist-val').textContent =
+      `${pinned.id} → ${node.id}  Δ ${d.toFixed(4)}`;
+  } else {
+    document.getElementById('i-sel-dist').style.display = 'none';
+  }
+}
+
+// ── ANIMATION LOOP ────────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+const meshList = () => corpus.map(n => n.mesh).filter(Boolean);
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  // Smooth orbit
+  sph.th += (tSph.th - sph.th) * 0.07;
+  sph.ph += (tSph.ph - sph.ph) * 0.07;
+  sph.r  += (tSph.r  - sph.r)  * 0.07;
+  if (!drag) tSph.th += 0.0006;
+
+  // Fly to node
+  if (flyTarget) {
+    orbitC.lerp(flyTarget, 0.05);
+    if (orbitC.distanceTo(flyTarget) < 0.05) flyTarget = null;
+  } else {
+    orbitC.lerp(tOrbitC, 0.06);
+  }
+
+  camera.position.set(
+    orbitC.x + sph.r * Math.sin(sph.ph) * Math.cos(sph.th),
+    orbitC.y + sph.r * Math.cos(sph.ph),
+    orbitC.z + sph.r * Math.sin(sph.ph) * Math.sin(sph.th)
+  );
+  camera.lookAt(orbitC);
+
+  // Cam coords
+  document.getElementById('cx').textContent = camera.position.x.toFixed(2);
+  document.getElementById('cy').textContent = camera.position.y.toFixed(2);
+  document.getElementById('cz').textContent = camera.position.z.toFixed(2);
+
+  // Light pulse
+  pl1.intensity = 1.8 + Math.sin(t*0.6)*0.4;
+  pl2.intensity = 1.3 + Math.sin(t*0.4+1)*0.3;
+
+  // Raycasting
+  ray.setFromCamera(mouse, camera);
+  const hits = ray.intersectObjects(meshList());
+
+  if (hovered) {
+    hovered.mesh.scale.setScalar(hovered.real ? 1.3 : 1.0);
+    if (hovered.glowMesh) hovered.glowMesh.material.opacity = hovered.real ? 0.10 : 0.04;
+  }
+  hovered = null;
+
+  if (hits.length > 0) {
+    const id = hits[0].object.userData.nodeId;
+    hovered = corpus.find(n => n.id === id);
+    if (hovered) {
+      hovered.mesh.scale.setScalar(1.8 + Math.sin(t*5)*0.08);
+      if (hovered.glowMesh) hovered.glowMesh.material.opacity = 0.28;
+      canvas.style.cursor = 'pointer';
+      showInfo(hovered);
+    }
+  } else {
+    canvas.style.cursor = 'default';
+    if (!pinned) document.getElementById('info').classList.remove('show');
+  }
+
+  // Node breathing (estimated only — real nodes are stable)
+  for (const node of corpus) {
+    if (node === hovered) continue;
+    if (!node.real) {
+      const pulse = 1 + Math.sin(t*1.4 + node.triple.D * 3.1) * 0.05;
+      if (node.mesh) node.mesh.scale.setScalar(pulse);
+    }
+    // Pinned node highlight
+    if (pinned && node.id === pinned.id && node.mesh) {
+      node.mesh.scale.setScalar(1.8 + Math.sin(t*3)*0.15);
+      if (node.glowMesh) node.glowMesh.material.opacity = 0.35;
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── RESIZE ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── KEYBOARD SHORTCUTS ────────────────────────────────────────────────────────
+window.addEventListener('keydown', e => {
+  if (e.key === 'p' || e.key === 'P') document.getElementById('mode-btn').click();
+  if (e.key === 'Escape') { orbitC.set(0,0,0); tOrbitC.set(0,0,0); tSph.r=32; }
+});
+</script>
+</body>
+</html>
