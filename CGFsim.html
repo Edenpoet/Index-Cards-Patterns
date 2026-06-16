@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CGF · SPACE ENGINE · PRE-DEBUT</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
+  #canvas { display: block; width: 100vw; height: 100vh; }
+
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none; z-index: 10;
+  }
+
+  #title-block {
+    position: fixed; top: 20px; left: 24px;
+    pointer-events: none;
+  }
+  #title-block .main { font-size: 11px; letter-spacing: 0.3em; color: #4af; opacity: 0.9; }
+  #title-block .sub  { font-size: 9px;  letter-spacing: 0.2em; color: #456; margin-top: 3px; }
+  #title-block .pre  { font-size: 8px;  letter-spacing: 0.15em; color: #f84; margin-top: 2px; opacity: 0.7; }
+
+  #coords {
+    position: fixed; bottom: 20px; left: 24px;
+    font-size: 9px; letter-spacing: 0.15em; color: #2af;
+    opacity: 0.6; pointer-events: none;
+    line-height: 1.7;
+  }
+
+  #node-info {
+    position: fixed; top: 20px; right: 24px;
+    width: 220px;
+    background: rgba(0,4,12,0.85);
+    border: 1px solid rgba(40,120,200,0.25);
+    padding: 14px 16px;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    opacity: 0;
+  }
+  #node-info.visible { opacity: 1; }
+  #node-info .label  { font-size: 8px; letter-spacing: 0.2em; color: #4af; margin-bottom: 8px; }
+  #node-info .id     { font-size: 13px; color: #fff; margin-bottom: 6px; }
+  #node-info .triple { font-size: 10px; color: #fa4; letter-spacing: 0.1em; margin-bottom: 8px; }
+  #node-info .cluster-label { font-size: 8px; color: #888; letter-spacing: 0.1em; }
+  #node-info .cluster-name  { font-size: 10px; color: #ccc; margin-top: 2px; }
+  #node-info .neighbors-label { font-size: 8px; color: #888; letter-spacing: 0.1em; margin-top: 10px; }
+  #node-info .neighbors-list  { font-size: 9px; color: #79c; margin-top: 3px; line-height: 1.7; }
+
+  #legend {
+    position: fixed; bottom: 20px; right: 24px;
+    pointer-events: none;
+  }
+  .legend-row { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .legend-text { font-size: 8px; letter-spacing: 0.1em; color: #556; }
+
+  #controls-hint {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    font-size: 8px; letter-spacing: 0.15em; color: #334;
+    pointer-events: none;
+  }
+
+  #count {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; letter-spacing: 0.25em; color: #335;
+    pointer-events: none;
+  }
+
+  #crosshair {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 20px; height: 20px; pointer-events: none; opacity: 0.3;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ''; position: absolute; background: #4af;
+  }
+  #crosshair::before { width: 1px; height: 100%; left: 50%; top: 0; }
+  #crosshair::after  { width: 100%; height: 1px; top: 50%; left: 0; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div id="hud">
+  <div id="title-block">
+    <div class="main">CGF · SPACE ENGINE</div>
+    <div class="sub">COGNITIVE GLYPH FRAMEWORK · 256-PATTERN METRIC SPACE</div>
+    <div class="pre">[PRE-DEBUT] · PRIMARY LEDGER: PHYSICAL CARDS · u/Cyrus9811</div>
+  </div>
+
+  <div id="count">— / 256 NODES POPULATED</div>
+
+  <div id="node-info">
+    <div class="label">NODE SELECTED</div>
+    <div class="id" id="ni-id">—</div>
+    <div class="triple" id="ni-triple">( D: — · T: — · R: — )</div>
+    <div class="cluster-label">CLUSTER REGION</div>
+    <div class="cluster-name" id="ni-cluster">—</div>
+    <div class="neighbors-label">NEAREST NEIGHBORS</div>
+    <div class="neighbors-list" id="ni-neighbors">—</div>
+  </div>
+
+  <div id="coords">
+    <div id="c-x">X  0.000</div>
+    <div id="c-y">Y  0.000</div>
+    <div id="c-z">Z  0.000</div>
+  </div>
+
+  <div id="legend"></div>
+
+  <div id="controls-hint">DRAG · SCROLL · HOVER NODE · DOUBLE-CLICK TO FLY</div>
+</div>
+
+<div id="crosshair"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ─── COLOR CLUSTERS — extracted from actual cluster map (image 2) ───────────
+// Colors derived from the visible cluster blobs: orange-red mass, green cluster,
+// teal scatter, blue-purple outliers, yellow-gold group
+const CLUSTERS = [
+  { name: 'CORE·DENSE',    color: 0xff5533, emissive: 0x441100, count: 68, region: [2, -1, 1] },
+  { name: 'GREEN·FIELD',   color: 0x33dd66, emissive: 0x004411, count: 32, region: [-1, 1, -1] },
+  { name: 'TEAL·SCATTER',  color: 0x22ccaa, emissive: 0x003322, count: 28, region: [0, 2, -2] },
+  { name: 'BLUE·OUTLIER',  color: 0x4466ff, emissive: 0x001133, count: 18, region: [3, 1, 2] },
+  { name: 'VIOLET·FRINGE', color: 0xaa44ff, emissive: 0x220033, count: 15, region: [3, 2, -1] },
+  { name: 'GOLD·NODE',     color: 0xffaa22, emissive: 0x332200, count: 12, region: [-3, 0, 1] },
+  { name: 'ISOLATED·PAIR', color: 0xddddcc, emissive: 0x222211, count: 3,  region: [-6, 1, 0] },
+];
+
+const TOPOLOGY_CLASSES = [
+  'open','closed','nested-open','nested-closed',
+  'branching','toroidal','radial','linear','spiral','compound'
+];
+
+// ─── NODE GENERATION from cluster data ──────────────────────────────────────
+function seededRand(seed) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+const nodes = [];
+let globalSeed = seededRand(8675309);
+
+let idCounter = 1;
+for (const cluster of CLUSTERS) {
+  const [rx, ry, rz] = cluster.region;
+  const r = globalSeed;
+
+  // Cluster spread — core dense is tight, outliers are scattered
+  const spread = cluster.name === 'CORE·DENSE' ? 2.8 :
+                 cluster.name === 'ISOLATED·PAIR' ? 0.4 : 1.8;
+
+  for (let i = 0; i < cluster.count; i++) {
+    // Gaussian-ish distribution using Box-Muller
+    const u1 = r(), u2 = r();
+    const mag = Math.sqrt(-2 * Math.log(Math.max(u1, 0.0001)));
+    const dx = mag * Math.cos(2 * Math.PI * u2) * spread;
+    const dy = (Math.sqrt(-2 * Math.log(Math.max(r(), 0.0001))) * Math.cos(2 * Math.PI * r())) * spread * 0.6;
+    const dz = (Math.sqrt(-2 * Math.log(Math.max(r(), 0.0001))) * Math.cos(2 * Math.PI * r())) * spread;
+
+    const D = parseFloat((1.0 + r() * 1.0).toFixed(2));
+    const T = TOPOLOGY_CLASSES[Math.floor(r() * TOPOLOGY_CLASSES.length)];
+    const R = Math.ceil(r() * 5);
+
+    nodes.push({
+      id: `CGF-${String(idCounter).padStart(3,'0')}`,
+      pos: [
+        rx * 3 + dx,
+        ry * 3 + dy,
+        rz * 3 + dz
+      ],
+      triple: { D, T, R },
+      cluster: cluster.name,
+      color: cluster.color,
+      emissive: cluster.emissive,
+      clusterRef: cluster,
+      mesh: null,
+      glowMesh: null,
+    });
+    idCounter++;
+  }
+}
+
+// Total nodes spawned
+const TOTAL = nodes.length;
+document.getElementById('count').textContent = `${TOTAL} / 256 NODES POPULATED`;
+
+// ─── EDGE GENERATION — metric-space connections ──────────────────────────────
+function dist3(a, b) {
+  return Math.sqrt(
+    (a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2
+  );
+}
+
+// Connect each node to its nearest 2-4 neighbors (mimicking the web structure)
+const edges = [];
+const edgeSet = new Set();
+for (let i = 0; i < nodes.length; i++) {
+  const dists = nodes
+    .map((n, j) => ({ j, d: dist3(nodes[i].pos, n.pos) }))
+    .filter(x => x.j !== i)
+    .sort((a, b) => a.d - b.d);
+
+  const k = nodes[i].cluster === 'ISOLATED·PAIR' ? 1 : (i % 3 === 0 ? 4 : 2);
+  for (let n = 0; n < k; n++) {
+    const j = dists[n].j;
+    const key = [Math.min(i,j), Math.max(i,j)].join('-');
+    if (!edgeSet.has(key)) {
+      edgeSet.add(key);
+      edges.push([i, j]);
+    }
+  }
+}
+
+// ─── THREE.JS SETUP ──────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x00010a, 1);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x00010a, 0.018);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(-12, 6, 18);
+camera.lookAt(0, 0, 0);
+
+// ─── AMBIENT SPACE DUST ──────────────────────────────────────────────────────
+const dustGeo = new THREE.BufferGeometry();
+const dustCount = 2000;
+const dustPos = new Float32Array(dustCount * 3);
+for (let i = 0; i < dustCount * 3; i++) dustPos[i] = (Math.random() - 0.5) * 120;
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dustMat = new THREE.PointsMaterial({ color: 0x223344, size: 0.04, transparent: true, opacity: 0.4 });
+scene.add(new THREE.Points(dustGeo, dustMat));
+
+// ─── GRID PLANE (very subtle) ────────────────────────────────────────────────
+const gridHelper = new THREE.GridHelper(60, 40, 0x0a1a2a, 0x050d14);
+gridHelper.position.y = -6;
+scene.add(gridHelper);
+
+// ─── EDGES ───────────────────────────────────────────────────────────────────
+for (const [i, j] of edges) {
+  const a = nodes[i].pos, b = nodes[j].pos;
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(...a), new THREE.Vector3(...b)
+  ]);
+
+  // Edge color interpolates between the two node colors
+  const ca = new THREE.Color(nodes[i].color);
+  const cb = new THREE.Color(nodes[j].color);
+  const mid = ca.clone().lerp(cb, 0.5);
+
+  const mat = new THREE.LineBasicMaterial({
+    color: mid,
+    transparent: true,
+    opacity: nodes[i].cluster === nodes[j].cluster ? 0.12 : 0.06,
+  });
+  scene.add(new THREE.Line(geo, mat));
+}
+
+// ─── NODE MESHES ─────────────────────────────────────────────────────────────
+const sphereGeo = new THREE.SphereGeometry(0.18, 8, 8);
+const glowGeo   = new THREE.SphereGeometry(0.32, 8, 8);
+
+for (const node of nodes) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: node.color,
+    emissive: node.emissive,
+    emissiveIntensity: 0.6,
+    roughness: 0.3,
+    metalness: 0.5,
+  });
+  const mesh = new THREE.Mesh(sphereGeo, mat);
+  mesh.position.set(...node.pos);
+  mesh.userData.nodeId = node.id;
+  scene.add(mesh);
+  node.mesh = mesh;
+
+  // Glow halo
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: node.color,
+    transparent: true,
+    opacity: 0.07,
+    side: THREE.BackSide,
+  });
+  const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+  glowMesh.position.set(...node.pos);
+  scene.add(glowMesh);
+  node.glowMesh = glowMesh;
+}
+
+// ─── LIGHTING ────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x0a1020, 2.0));
+const pt1 = new THREE.PointLight(0x2244ff, 1.5, 30);
+pt1.position.set(5, 8, 5);
+scene.add(pt1);
+const pt2 = new THREE.PointLight(0xff4422, 1.2, 25);
+pt2.position.set(-5, -4, -8);
+scene.add(pt2);
+const pt3 = new THREE.PointLight(0x22ffaa, 0.8, 20);
+pt3.position.set(0, 6, -10);
+scene.add(pt3);
+
+// ─── LEGEND ──────────────────────────────────────────────────────────────────
+const legendEl = document.getElementById('legend');
+for (const cl of CLUSTERS) {
+  const hex = '#' + cl.color.toString(16).padStart(6,'0');
+  const row = document.createElement('div');
+  row.className = 'legend-row';
+  row.innerHTML = `<div class="legend-dot" style="background:${hex}"></div><div class="legend-text">${cl.name} · ${cl.count}</div>`;
+  legendEl.appendChild(row);
+}
+
+// ─── ORBIT CONTROLS (manual implementation — no external lib) ────────────────
+let isDragging = false, prevMouse = {x:0,y:0};
+let spherical = { theta: -0.6, phi: 1.1, radius: 22 };
+let targetSpherical = { ...spherical };
+
+canvas.addEventListener('mousedown', e => { isDragging = true; prevMouse = {x:e.clientX,y:e.clientY}; });
+window.addEventListener('mouseup', () => isDragging = false);
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - prevMouse.x;
+  const dy = e.clientY - prevMouse.y;
+  targetSpherical.theta -= dx * 0.005;
+  targetSpherical.phi   = Math.max(0.2, Math.min(Math.PI - 0.2, targetSpherical.phi + dy * 0.005));
+  prevMouse = {x:e.clientX,y:e.clientY};
+});
+canvas.addEventListener('wheel', e => {
+  targetSpherical.radius = Math.max(3, Math.min(60, targetSpherical.radius + e.deltaY * 0.02));
+});
+
+// ─── RAYCASTER / NODE HOVER ───────────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let hoveredNode = null;
+let selectedNode = null;
+let flyTarget = null;
+
+window.addEventListener('mousemove', e => {
+  mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+});
+
+// Double-click to fly to node
+canvas.addEventListener('dblclick', () => {
+  if (hoveredNode) {
+    flyTarget = { ...hoveredNode.pos };
+    selectedNode = hoveredNode;
+    showNodeInfo(hoveredNode);
+  }
+});
+
+function showNodeInfo(node) {
+  const panel = document.getElementById('node-info');
+  panel.classList.add('visible');
+  document.getElementById('ni-id').textContent = node.id;
+  document.getElementById('ni-triple').textContent =
+    `( D: ${node.triple.D} · T: ${node.triple.T} · R: ${node.triple.R} )`;
+  document.getElementById('ni-cluster').textContent = node.cluster;
+
+  // Find 3 nearest neighbors
+  const neighbors = nodes
+    .filter(n => n.id !== node.id)
+    .map(n => ({ id: n.id, d: dist3(n.pos, node.pos) }))
+    .sort((a,b) => a.d - b.d)
+    .slice(0,3)
+    .map(n => n.id)
+    .join('\n');
+  document.getElementById('ni-neighbors').textContent = neighbors;
+}
+
+// ─── ORBIT CENTER ────────────────────────────────────────────────────────────
+const orbitCenter = new THREE.Vector3(0, 0, 0);
+const targetCenter = new THREE.Vector3(0, 0, 0);
+
+// ─── ANIMATION LOOP ──────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  // Smooth spherical interpolation
+  spherical.theta  += (targetSpherical.theta  - spherical.theta)  * 0.06;
+  spherical.phi    += (targetSpherical.phi    - spherical.phi)    * 0.06;
+  spherical.radius += (targetSpherical.radius - spherical.radius) * 0.06;
+
+  // Fly to target
+  if (flyTarget) {
+    targetCenter.lerp(new THREE.Vector3(...flyTarget), 0.04);
+    orbitCenter.lerp(targetCenter, 0.08);
+    if (orbitCenter.distanceTo(new THREE.Vector3(...flyTarget)) < 0.1) flyTarget = null;
+  }
+
+  // Auto-slow rotation when not dragging
+  if (!isDragging) targetSpherical.theta += 0.0008;
+
+  // Camera position from spherical
+  camera.position.x = orbitCenter.x + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+  camera.position.y = orbitCenter.y + spherical.radius * Math.cos(spherical.phi);
+  camera.position.z = orbitCenter.z + spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+  camera.lookAt(orbitCenter);
+
+  // Update coord display
+  document.getElementById('c-x').textContent = `X  ${camera.position.x.toFixed(3)}`;
+  document.getElementById('c-y').textContent = `Y  ${camera.position.y.toFixed(3)}`;
+  document.getElementById('c-z').textContent = `Z  ${camera.position.z.toFixed(3)}`;
+
+  // Pulse lights
+  pt1.intensity = 1.2 + Math.sin(t * 0.7) * 0.3;
+  pt2.intensity = 1.0 + Math.sin(t * 0.5 + 1) * 0.3;
+
+  // Raycasting for hover
+  raycaster.setFromCamera(mouse, camera);
+  const meshes = nodes.map(n => n.mesh);
+  const hits = raycaster.intersectObjects(meshes);
+
+  // Reset previous hover
+  if (hoveredNode) {
+    hoveredNode.mesh.scale.setScalar(1);
+    hoveredNode.glowMesh.material.opacity = 0.07;
+  }
+
+  hoveredNode = null;
+  if (hits.length > 0) {
+    const id = hits[0].object.userData.nodeId;
+    hoveredNode = nodes.find(n => n.id === id);
+    if (hoveredNode) {
+      hoveredNode.mesh.scale.setScalar(1.5 + Math.sin(t * 4) * 0.1);
+      hoveredNode.glowMesh.material.opacity = 0.25;
+      canvas.style.cursor = 'pointer';
+    }
+  } else {
+    canvas.style.cursor = 'default';
+  }
+
+  // Gentle node breathing
+  for (const node of nodes) {
+    if (node !== hoveredNode) {
+      const pulse = 1 + Math.sin(t * 1.2 + node.pos[0] * 0.5) * 0.04;
+      node.mesh.scale.setScalar(pulse);
+    }
+    // Glyph-specific gentle drift (very slight, just breathing)
+    node.mesh.rotation.y = t * 0.1 + node.pos[0] * 0.2;
+  }
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+// ─── RESIZE ──────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
