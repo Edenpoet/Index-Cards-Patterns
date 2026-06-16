@@ -1,0 +1,23 @@
+{
+  "name": "cgf-sim",
+  "version": "0.1.0",
+  "description": "CGF Metric Space Simulation Engine — Cognitive Glyph Framework CLI",
+  "main": "src/index.js",
+  "bin": {
+    "cgf": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "sim": "node src/index.js sim",
+    "scan": "node src/index.js scan",
+    "map": "node src/index.js map"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0"
+  },
+  "author": "Sean Rangel — u/Cyrus9811",
+  "license": "UNLICENSED",
+  "private": true
+}
