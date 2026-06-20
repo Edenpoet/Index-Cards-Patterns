@@ -84,4 +84,5 @@ Physical index cards are the **primary ledger**. This repo is the digital record
 
 - **Author:** Sean Rangel
 - **Reddit:** [u/Cyrus9811](https://www.reddit.com/user/Cyrus98111)
-- **Card photos:** [Google Photos album](https://photos.app.goo.gl/DxumgjS7kdd8uyRf7)
+- **Card photos:** [Google Photos album](https://photos.app.goo.gl/DxumgjS7kdd8uyRf7) 178 patterns
+- (https://photos.app.goo.gl/JTSPVHG8RVsC3Z2b70) 10 patterns
