@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CGF · CELL SPACE · FRACTAL LANGUAGE</title>
+<style>
+/* ── RESET ── */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;min-height:100vh;background:#000208;color:#8aaccc;font-family:'Courier New',monospace;overflow-x:hidden}
+
+/* ── SCAN LINE ── */
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.07) 3px,rgba(0,0,0,0.07) 4px);pointer-events:none;z-index:9999}
+
+/* ── ROOT TOKENS ── */
+:root{
+  --bg:        #000208;
+  --panel:     #00030f;
+  --border:    rgba(40,100,200,0.14);
+  --border2:   rgba(0,255,150,0.12);
+  --border3:   rgba(250,150,0,0.14);
+  --seq:       #00ff99;
+  --amber:     #ffaa00;
+  --violet:    #9966ff;
+  --dim:       #223344;
+  --dim2:      #334466;
+  --text:      #8aaccc;
+  --text2:     #5577aa;
+  --mono:      'Courier New', monospace;
+}
+
+/* ── HEADER ── */
+#header{
+  padding:14px 18px 10px;
+  border-bottom:1px solid var(--border);
+  background:var(--panel);
+  position:sticky;top:0;z-index:50;
+}
+.h-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.h-title{font-size:15px;letter-spacing:0.25em;color:var(--seq);font-weight:normal}
+.h-sub{font-size:9px;letter-spacing:0.2em;color:var(--dim2)}
+.h-author{font-size:8px;letter-spacing:0.15em;color:var(--amber);opacity:0.7;margin-left:auto}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap}
+.chip{
+  background:rgba(0,255,150,0.04);
+  border:1px solid rgba(0,255,150,0.12);
+  border-radius:2px;
+  padding:3px 8px;
+  font-size:9px;letter-spacing:0.1em;color:var(--text2)
+}
+.chip b{color:var(--seq)}
+
+/* ── AXIS LEGEND ── */
+#axis-bar{
+  display:flex;gap:16px;flex-wrap:wrap;
+  padding:7px 18px;
+  border-bottom:1px solid var(--border);
+  background:var(--panel);
+}
+.ax{font-size:8px;letter-spacing:0.15em;color:var(--dim2)}
+.ax b{color:var(--text)}
+.ax em{color:var(--amber);font-style:normal}
+
+/* ── MAIN GRID ── */
+#main{display:grid;grid-template-columns:1fr;gap:0}
+
+/* ── CANVAS WRAP ── */
+#canvas-wrap{
+  position:relative;width:100%;height:340px;
+  overflow:hidden;background:var(--bg);
+  border-bottom:1px solid var(--border);
+}
+#c{display:block;width:100%;height:100%}
+.overlay-label{
+  position:absolute;font-size:8px;letter-spacing:0.15em;
+  color:var(--dim2);pointer-events:none;font-family:var(--mono)
+}
+#hover-tag{
+  display:none;position:absolute;
+  background:rgba(0,3,15,0.92);
+  border:1px solid var(--seq);
+  border-radius:2px;padding:3px 8px;
+  font-size:9px;letter-spacing:0.1em;color:var(--seq);
+  pointer-events:none;font-family:var(--mono);
+  box-shadow:0 0 8px rgba(0,255,150,0.15)
+}
+
+/* ── CONTROLS ── */
+#controls{
+  padding:10px 18px;
+  border-bottom:1px solid var(--border);
+  background:var(--panel);
+  display:flex;flex-direction:column;gap:8px
+}
+.ctrl-row{display:flex;align-items:center;gap:10px}
+.ctrl-label{font-size:8px;letter-spacing:0.2em;color:var(--dim2);min-width:72px}
+select{
+  font-size:9px;flex:1;padding:5px 8px;
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:2px;color:var(--text);
+  font-family:var(--mono);letter-spacing:0.1em;
+  outline:none;cursor:pointer
+}
+select:focus{border-color:var(--seq)}
+
+/* ── CELL INFO ── */
+#cell-info{
+  padding:12px 18px;
+  border-bottom:1px solid var(--border);
+  background:var(--panel);
+  min-height:68px;
+}
+.ci-id{font-size:11px;letter-spacing:0.2em;color:var(--seq);margin-bottom:4px}
+.ci-meta{font-size:9px;letter-spacing:0.1em;color:var(--text2);line-height:2}
+.ci-triple{
+  display:inline-block;margin-top:6px;
+  font-size:10px;letter-spacing:0.1em;
+  color:var(--amber);
+  border:1px solid rgba(250,150,0,0.2);
+  padding:3px 10px;border-radius:2px;
+}
+
+/* ── LANGUAGE ENGINE ── */
+#lang-panel{
+  border-bottom:1px solid var(--border2);
+  background:var(--bg);
+}
+#lang-header{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 18px;
+  border-bottom:1px solid var(--border2);
+  background:rgba(0,255,150,0.02);
+}
+.lang-title{font-size:8px;letter-spacing:0.25em;color:var(--seq)}
+.lang-dot{width:6px;height:6px;border-radius:50%;background:var(--seq);animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+.lang-status{font-size:8px;letter-spacing:0.15em;color:var(--dim2);margin-left:auto}
+
+/* ── SEQUENCE STREAMS ── */
+#seq-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:0;
+}
+.seq-block{padding:10px 18px;border-bottom:1px solid var(--border)}
+.seq-label{font-size:7px;letter-spacing:0.25em;color:var(--dim2);margin-bottom:6px}
+
+/* DNA/RNA stream */
+#seq-stream{
+  font-size:10px;letter-spacing:0.18em;line-height:1.9;
+  color:var(--seq);word-break:break-all;
+  min-height:48px;
+  font-family:var(--mono);
+  white-space:pre-wrap;
+}
+#seq-stream .t-df{color:var(--seq)}
+#seq-stream .t-om{color:var(--violet)}
+#seq-stream .t-rh{color:var(--amber)}
+#seq-stream .t-sp{color:var(--dim2)}
+#seq-stream .t-bin{color:#226644}
+
+/* Binary decode row */
+#bin-stream{
+  font-size:8px;letter-spacing:0.22em;line-height:2;
+  color:#1a4433;word-break:break-all;
+  min-height:32px;font-family:var(--mono);
+  transition:color 0.3s;
+}
+#bin-stream.active{color:#0f6}
+
+/* Codon table */
+#codon-table{width:100%;border-collapse:collapse}
+#codon-table td,#codon-table th{
+  padding:4px 10px;font-size:8px;letter-spacing:0.1em;
+  border:1px solid var(--border);text-align:left;
+}
+#codon-table th{color:var(--dim2);background:rgba(0,0,0,0.3)}
+#codon-table td:first-child{color:var(--violet)}
+#codon-table td:nth-child(2){color:var(--seq);font-family:var(--mono)}
+#codon-table td:nth-child(3){color:var(--amber)}
+#codon-table td:nth-child(4){color:var(--text2)}
+.active-codon{background:rgba(0,255,150,0.06)!important}
+
+/* ── METRIC DISPLAY ── */
+#metric-panel{
+  padding:12px 18px;
+  border-bottom:1px solid var(--border);
+  background:var(--panel);
+}
+.metric-row{display:flex;gap:0;border:1px solid var(--border)}
+.metric-cell{
+  flex:1;padding:8px 10px;
+  border-right:1px solid var(--border);
+  min-width:0;
+}
+.metric-cell:last-child{border-right:none}
+.mc-key{font-size:7px;letter-spacing:0.2em;color:var(--dim2);margin-bottom:4px}
+.mc-val{font-size:13px;color:var(--text);letter-spacing:0.05em}
+.mc-val.green{color:var(--seq)}
+.mc-val.amber{color:var(--amber)}
+.mc-val.violet{color:var(--violet)}
+
+/* ── COUSIN STRIP ── */
+#cousin-panel{
+  padding:10px 18px;
+  border-bottom:1px solid var(--border);
+  background:var(--bg);
+}
+.cousin-label{font-size:7px;letter-spacing:0.25em;color:var(--dim2);margin-bottom:8px}
+#cousin-strip{display:flex;gap:6px;flex-wrap:wrap}
+.cousin-chip{
+  padding:4px 10px;
+  background:rgba(153,102,255,0.05);
+  border:1px solid rgba(153,102,255,0.18);
+  border-radius:2px;
+  font-size:8px;letter-spacing:0.1em;color:var(--violet);cursor:pointer;
+  transition:all 0.15s;
+}
+.cousin-chip:hover{background:rgba(153,102,255,0.12);color:#fff}
+
+/* ── FOOTER ── */
+#footer{
+  padding:10px 18px;
+  background:var(--panel);
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  border-top:1px solid var(--border);
+}
+.ft-txt{font-size:7px;letter-spacing:0.15em;color:var(--dim)}
+.ft-txt b{color:var(--dim2)}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="h-row">
+    <span class="h-title">CGF · CELL SPACE</span>
+    <span class="h-sub">FRACTAL LANGUAGE · METRIC SPACE · SYMBOLIC COMPUTATION</span>
+    <span class="h-author">Sean Rangel · 08·17·1998 · SA·TX</span>
+  </div>
+  <div class="chip-row">
+    <div class="chip">Ω-ORGANIC <b>93</b></div>
+    <div class="chip">Ω-CROSS <b>48</b></div>
+    <div class="chip">Ω-MANDALA <b>13</b></div>
+    <div class="chip">Ω-LATTICE <b>12</b></div>
+    <div class="chip">Ω-FIELD <b>5</b></div>
+    <div class="chip">Ω-ASYM <b>4</b></div>
+    <div class="chip">Ω-WEAVE <b>2</b></div>
+    <div class="chip">Ω-TREE <b>1</b></div>
+    <div class="chip" style="margin-left:auto;border-color:rgba(250,150,0,0.2);color:var(--amber)"><b id="active-count">178</b> / 256 CELLS</div>
+  </div>
+</div>
+
+<!-- AXIS BAR -->
+<div id="axis-bar">
+  <span class="ax"><b>Df</b> — fractal dimension <em>[1.0 → 2.0]</em></span>
+  <span class="ax"><b>Ω</b> — topology class <em>[8 types]</em></span>
+  <span class="ax"><b>ρ</b> — recursion depth <em>[1 → 7]</em></span>
+  <span class="ax" style="margin-left:auto"><b>1 CARD</b> = <b>1 CELL</b> = <b>1 NODE</b></span>
+</div>
+
+<!-- CANVAS -->
+<div id="canvas-wrap">
+  <canvas id="c"></canvas>
+  <div class="overlay-label" style="left:10px;top:8px">Df →</div>
+  <div class="overlay-label" style="left:10px;top:24px" id="ol-low">LOW 1.0</div>
+  <div class="overlay-label" style="right:10px;top:8px" id="ol-high">HIGH 2.0</div>
+  <div class="overlay-label" style="left:10px;bottom:8px">ρ↑ depth</div>
+  <div id="hover-tag"></div>
+</div>
+
+<!-- CONTROLS -->
+<div id="controls">
+  <div class="ctrl-row">
+    <span class="ctrl-label">TOPOLOGY</span>
+    <select id="topo-filter">
+      <option value="ALL">ALL CLASSES</option>
+      <option value="ORGANIC">Ω-ORGANIC</option>
+      <option value="CROSS">Ω-CROSS</option>
+      <option value="MANDALA">Ω-MANDALA</option>
+      <option value="LATTICE">Ω-LATTICE</option>
+      <option value="FIELD">Ω-FIELD</option>
+      <option value="ASYMMETRIC">Ω-ASYMMETRIC</option>
+      <option value="WEAVE">Ω-WEAVE</option>
+      <option value="TREE">Ω-TREE</option>
+    </select>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">VIEW MODE</span>
+    <select id="view-mode">
+      <option value="SCATTER">Df × ρ SCATTER</option>
+      <option value="GRID">256-CELL GRID</option>
+      <option value="CLUSTER">TOPOLOGY CLUSTERS</option>
+    </select>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">SHOW</span>
+    <select id="show-mode">
+      <option value="ALL">ALL CELLS</option>
+      <option value="ACTIVE">AUTHORED ONLY (178)</option>
+      <option value="PENDING">PENDING ONLY (78)</option>
+    </select>
+  </div>
+</div>
+
+<!-- CELL INFO -->
+<div id="cell-info">
+  <div class="ci-id" id="ci-id">SELECT A CELL</div>
+  <div class="ci-meta" id="ci-meta">Tap or click any glyph node · identity triple will decode below</div>
+</div>
+
+<!-- METRIC STRIP -->
+<div id="metric-panel">
+  <div class="metric-row">
+    <div class="metric-cell">
+      <div class="mc-key">Df VALUE</div>
+      <div class="mc-val green" id="met-df">—</div>
+    </div>
+    <div class="metric-cell">
+      <div class="mc-key">Ω CLASS</div>
+      <div class="mc-val violet" id="met-om">—</div>
+    </div>
+    <div class="metric-cell">
+      <div class="mc-key">ρ DEPTH</div>
+      <div class="mc-val amber" id="met-rh">—</div>
+    </div>
+    <div class="metric-cell">
+      <div class="mc-key">DENSITY</div>
+      <div class="mc-val" id="met-dn">—</div>
+    </div>
+    <div class="metric-cell">
+      <div class="mc-key">STATUS</div>
+      <div class="mc-val" id="met-st" style="font-size:9px">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- LANGUAGE ENGINE -->
+<div id="lang-panel">
+  <div id="lang-header">
+    <div class="lang-dot"></div>
+    <span class="lang-title">FRACTAL LANGUAGE ENGINE · SYMBOLIC SEQUENCE PARSER</span>
+    <span class="lang-status" id="lang-status">IDLE · AWAITING CELL</span>
+  </div>
+
+  <div id="seq-grid">
+
+    <!-- STRAND 1: SYMBOL SEQUENCE -->
+    <div class="seq-block">
+      <div class="seq-label">STRAND-α · TOPOLOGY CODON SEQUENCE · [Ω·Df·ρ] × RECURSION</div>
+      <div id="seq-stream">——— SELECT A CELL TO DECODE FRACTAL LANGUAGE ———</div>
+    </div>
+
+    <!-- STRAND 2: BINARY -->
+    <div class="seq-block" style="background:rgba(0,0,0,0.3)">
+      <div class="seq-label">STRAND-β · NEURAL BINARY LAYER · SYMBOLIC → BINARY ENCODING</div>
+      <div id="bin-stream">0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000</div>
+    </div>
+
+    <!-- CODON TABLE -->
+    <div class="seq-block">
+      <div class="seq-label">CODON MAP · TOPOLOGY → SYMBOLIC BASE PAIRS</div>
+      <table id="codon-table">
+        <tr>
+          <th>Ω CLASS</th>
+          <th>CODON</th>
+          <th>BASE</th>
+          <th>BEHAVIOR</th>
+        </tr>
+        <tr id="cd-ORGANIC"><td>ORGANIC</td><td>ORG·∿·ΔΩ</td><td>0xA1</td><td>FLOWING · BOUNDARY-SEEKING</td></tr>
+        <tr id="cd-CROSS"><td>CROSS</td><td>CRS·✕·ΔΩ</td><td>0xB2</td><td>AXIS-LOCKED · RADIAL TENSION</td></tr>
+        <tr id="cd-MANDALA"><td>MANDALA</td><td>MND·◎·ΔΩ</td><td>0xC3</td><td>SYMMETRIC · CENTRIPETAL PULL</td></tr>
+        <tr id="cd-LATTICE"><td>LATTICE</td><td>LAT·⊞·ΔΩ</td><td>0xD4</td><td>GRID-BOUND · TILED RECURSION</td></tr>
+        <tr id="cd-FIELD"><td>FIELD</td><td>FLD·∴·ΔΩ</td><td>0xE5</td><td>DIFFUSE · GRADIENT SPREAD</td></tr>
+        <tr id="cd-ASYMMETRIC"><td>ASYMMETRIC</td><td>ASY·◁·ΔΩ</td><td>0xF6</td><td>DIRECTIONAL · BREAK SYMMETRY</td></tr>
+        <tr id="cd-WEAVE"><td>WEAVE</td><td>WVE·⊗·ΔΩ</td><td>0xG7</td><td>INTERLACED · DUAL THREADING</td></tr>
+        <tr id="cd-TREE"><td>TREE</td><td>TRE·⋔·ΔΩ</td><td>0xH8</td><td>BRANCHING · DEPTH FIRST</td></tr>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- COUSIN STRIP -->
+<div id="cousin-panel">
+  <div class="cousin-label">COUSIN CELLS · SAME Ω CLASS · NEAREST METRIC DISTANCE</div>
+  <div id="cousin-strip">
+    <div style="font-size:8px;color:var(--dim2);letter-spacing:0.15em">NO CELL SELECTED</div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div id="footer">
+  <span class="ft-txt"><b>CGF · CELL SPACE</b> · HAND-AUTHORED FRACTAL LANGUAGE · NOT ALGORITHMIC · NOT GENERATED</span>
+  <span class="ft-txt"><b>PRE-DEBUT</b> · 178 / 256 CELLS AUTHORED · ORIGIN: HUMAN HAND → MATH → LANGUAGE</span>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// CGF CELL SPACE · FRACTAL LANGUAGE ENGINE
+// Sean Rangel · 08·17·1998 · San Antonio TX
+// 178 physical index cards · hand-drawn · no algorithm
+// 1 card = 1 cell = 1 node in the metric space
+// ══════════════════════════════════════════════════════════════
+
+// ── TOPOLOGY ──────────────────────────────────────────────────
+const TOPO_CLASSES = ['ORGANIC','CROSS','MANDALA','LATTICE','FIELD','ASYMMETRIC','WEAVE','TREE'];
+const TOPO_COUNTS  = {ORGANIC:93,CROSS:48,MANDALA:13,LATTICE:12,FIELD:5,ASYMMETRIC:4,WEAVE:2,TREE:1};
+const TOPO_COLORS  = {
+  ORGANIC:'#1D9E75', CROSS:'#7F77DD', MANDALA:'#D85A30', LATTICE:'#378ADD',
+  FIELD:'#BA7517',   ASYMMETRIC:'#D4537E', WEAVE:'#639922', TREE:'#888780'
+};
+const TOPO_CODON = {
+  ORGANIC:'ORG·∿', CROSS:'CRS·✕', MANDALA:'MND·◎', LATTICE:'LAT·⊞',
+  FIELD:'FLD·∴', ASYMMETRIC:'ASY·◁', WEAVE:'WVE·⊗', TREE:'TRE·⋔'
+};
+const TOPO_BASE = {
+  ORGANIC:'A1',CROSS:'B2',MANDALA:'C3',LATTICE:'D4',
+  FIELD:'E5',ASYMMETRIC:'F6',WEAVE:'G7',TREE:'H8'
+};
+
+// ── SEEDED RANDOM ──────────────────────────────────────────────
+function seededRand(seed){
+  let s=seed|0;
+  return()=>{s=(Math.imul(s,16807)+0)%2147483647;if(s<0)s+=2147483647;return(s-1)/2147483646};
+}
+
+// ── CORPUS GENERATION ─────────────────────────────────────────
+// FIX: previously had col=cell.id%16 which skips col 0 for id=16
+// CORRECT: col = (cell.id-1) % 16, row = floor((cell.id-1)/16)
+function generateCells(){
+  const cells=[];
+  let id=1;
+  for(const [topo,count] of Object.entries(TOPO_COUNTS)){
+    const ti = TOPO_CLASSES.indexOf(topo);
+    const r  = seededRand(ti*997+13);
+    for(let i=0;i<count;i++){
+      const df  = parseFloat((1.0 + r()*1.0).toFixed(3));
+      const rho = Math.floor(r()*7)+1;
+      cells.push({id, topo, df, rho, active:true});
+      id++;
+    }
+  }
+  // Pending cells (78 remaining to 256)
+  const r2=seededRand(9973);
+  for(let i=id;i<=256;i++){
+    const topo=TOPO_CLASSES[Math.floor(r2()*TOPO_CLASSES.length)];
+    const df=parseFloat((1.0+r2()*1.0).toFixed(3));
+    const rho=Math.floor(r2()*7)+1;
+    cells.push({id:i, topo, df, rho, active:false});
+  }
+  return cells;
+}
+const CELLS = generateCells();
+
+// ── CANVAS SETUP ──────────────────────────────────────────────
+const canvas  = document.getElementById('c');
+const wrap    = document.getElementById('canvas-wrap');
+const ctx     = canvas.getContext('2d');
+const hoverEl = document.getElementById('hover-tag');
+let W=0, H=0, positions=[], selectedCell=null;
+
+function resize(){
+  W = wrap.clientWidth;
+  H = wrap.clientHeight;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  draw();
+}
+
+// ── POSITIONS ─────────────────────────────────────────────────
+function getPositions(){
+  const mode  = document.getElementById('view-mode').value;
+  const filter= document.getElementById('topo-filter').value;
+  const show  = document.getElementById('show-mode').value;
+  const PAD   = 32;
+
+  return CELLS.map(cell=>{
+    const visible =
+      (filter==='ALL' || cell.topo===filter) &&
+      (show==='ALL' || (show==='ACTIVE'&&cell.active) || (show==='PENDING'&&!cell.active));
+
+    let x,y;
+    if(mode==='SCATTER'){
+      // FIX: correct Df axis — df ranges 1.0–2.0, normalize to 0–1
+      x = PAD + ((cell.df-1.0)/1.0) * (W-PAD*2);
+      // ρ ranges 1–7, normalize to 0–1, invert so high ρ = top
+      y = H - PAD - ((cell.rho-1)/6) * (H-PAD*2);
+
+    } else if(mode==='GRID'){
+      // FIX: was cell.id%16 → missed position 0, created gap
+      const col = (cell.id-1) % 16;
+      const row = Math.floor((cell.id-1) / 16);
+      const cellW = (W-PAD*2)/16;
+      const cellH = (H-PAD*2)/16;
+      x = PAD + col*cellW + cellW*0.5;
+      y = PAD + row*cellH + cellH*0.5;
+
+    } else { // CLUSTER
+      const ti    = TOPO_CLASSES.indexOf(cell.topo);
+      const angle = (ti/TOPO_CLASSES.length)*Math.PI*2 - Math.PI/2;
+      const orbitR= Math.min(W,H)*0.34;
+      const cx    = W/2 + Math.cos(angle)*orbitR;
+      const cy    = H/2 + Math.sin(angle)*orbitR;
+      const cr    = seededRand(cell.id*7+ti*31);
+      const jitter= 28 + (cell.rho/7)*14;
+      x = cx + (cr()-0.5)*jitter;
+      y = cy + (cr()-0.5)*jitter;
+    }
+
+    return{
+      cell,
+      x: Math.max(8, Math.min(W-8, x)),
+      y: Math.max(8, Math.min(H-8, y)),
+      visible
+    };
+  });
+}
+
+// ── GLYPH DRAW ────────────────────────────────────────────────
+function drawFractalGlyph(ctx, x, y, r, topo){
+  ctx.save();
+  ctx.translate(x,y);
+  const col = TOPO_COLORS[topo];
+  ctx.strokeStyle = col;
+  ctx.fillStyle   = col+'2a';
+
+  switch(topo){
+    case 'ORGANIC':{
+      ctx.beginPath();
+      for(let i=0;i<6;i++){
+        const a  = (i/6)*Math.PI*2;
+        const a2 = ((i+0.5)/6)*Math.PI*2;
+        if(i===0) ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r);
+        else       ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+        ctx.lineTo(Math.cos(a2)*r*0.55, Math.sin(a2)*r*0.55);
+      }
+      ctx.closePath(); ctx.fill(); ctx.lineWidth=0.8; ctx.stroke();
+      break;
+    }
+    case 'CROSS':{
+      ctx.lineWidth=1.1; ctx.strokeStyle=col;
+      [[1,0],[0,1],[0.7,0.7],[0.7,-0.7]].forEach(([cx,cy])=>{
+        ctx.beginPath();ctx.moveTo(-cx*r,-cy*r);ctx.lineTo(cx*r,cy*r);ctx.stroke();
+      });
+      break;
+    }
+    case 'MANDALA':{
+      [0.4,0.75,1.0].forEach(f=>{
+        ctx.beginPath();ctx.arc(0,0,r*f,0,Math.PI*2);
+        ctx.strokeStyle=col;ctx.lineWidth=0.5;ctx.stroke();
+      });
+      for(let i=0;i<8;i++){
+        const a=(i/8)*Math.PI*2;
+        ctx.beginPath();ctx.moveTo(0,0);
+        ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+        ctx.lineWidth=0.4;ctx.stroke();
+      }
+      break;
+    }
+    case 'LATTICE':{
+      ctx.lineWidth=0.6; ctx.strokeStyle=col;
+      const s=r*0.55;
+      for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++){
+        ctx.beginPath();ctx.rect(dx*s-s*0.4, dy*s-s*0.4, s*0.8, s*0.8);ctx.stroke();
+      }
+      break;
+    }
+    case 'FIELD':{
+      ctx.lineWidth=0.6; ctx.strokeStyle=col;
+      for(let i=0;i<4;i++){
+        const a=(i/4)*Math.PI*2+0.3;
+        ctx.beginPath();ctx.moveTo(0,0);
+        ctx.bezierCurveTo(
+          Math.cos(a+0.5)*r*0.5, Math.sin(a+0.5)*r*0.5,
+          Math.cos(a-0.5)*r*0.5, Math.sin(a-0.5)*r*0.5,
+          Math.cos(a)*r,          Math.sin(a)*r
+        );
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'ASYMMETRIC':{
+      ctx.lineWidth=0.9;
+      ctx.beginPath();ctx.moveTo(-r,r*0.3);ctx.lineTo(0,-r);ctx.lineTo(r*0.6,r);ctx.closePath();
+      ctx.fill();ctx.stroke();
+      break;
+    }
+    case 'WEAVE':{
+      ctx.lineWidth=0.8;
+      ctx.beginPath();ctx.moveTo(-r,-r*0.3);
+      ctx.bezierCurveTo(-r*0.3,r,-r*0.3,-r,r,-r*0.3);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(r,r*0.3);
+      ctx.bezierCurveTo(r*0.3,-r,r*0.3,r,-r,r*0.3);ctx.stroke();
+      break;
+    }
+    case 'TREE':{
+      ctx.lineWidth=0.7;
+      ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(-r*0.5,0);ctx.lineTo(r*0.5,0);
+      ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.beginPath();ctx.moveTo(-r*0.5,0);ctx.lineTo(-r*0.25,r);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(r*0.5,0);ctx.lineTo(r*0.25,r);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,r*0.7);ctx.stroke();
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+// ── MAIN DRAW ─────────────────────────────────────────────────
+function draw(){
+  if(!W) return;
+  ctx.clearRect(0,0,W,H);
+  const mode = document.getElementById('view-mode').value;
+
+  // Grid lines for SCATTER
+  if(mode==='SCATTER'){
+    ctx.strokeStyle='rgba(0,255,150,0.04)';
+    ctx.lineWidth=0.5;
+    for(let i=0;i<=6;i++){
+      const y=32+i/6*(H-64);
+      ctx.beginPath();ctx.moveTo(32,y);ctx.lineTo(W-32,y);ctx.stroke();
+    }
+    for(let i=0;i<=10;i++){
+      const x=32+i/10*(W-64);
+      ctx.beginPath();ctx.moveTo(x,32);ctx.lineTo(x,H-32);ctx.stroke();
+    }
+    // ρ labels
+    ctx.fillStyle='rgba(100,150,200,0.35)';ctx.font='8px Courier New';ctx.textAlign='left';
+    for(let i=1;i<=7;i++){
+      const y=H-32-((i-1)/6)*(H-64);
+      ctx.fillText('ρ='+i, 2, y+3);
+    }
+  }
+
+  // Cluster halos
+  if(mode==='CLUSTER'){
+    TOPO_CLASSES.forEach((topo,ti)=>{
+      const angle=(ti/TOPO_CLASSES.length)*Math.PI*2-Math.PI/2;
+      const orbitR=Math.min(W,H)*0.34;
+      const cx=W/2+Math.cos(angle)*orbitR;
+      const cy=H/2+Math.sin(angle)*orbitR;
+      ctx.beginPath();ctx.arc(cx,cy,46,0,Math.PI*2);
+      ctx.fillStyle=TOPO_COLORS[topo]+'1a';ctx.fill();
+      ctx.strokeStyle=TOPO_COLORS[topo]+'33';ctx.lineWidth=0.5;ctx.stroke();
+      ctx.fillStyle=TOPO_COLORS[topo]+'88';
+      ctx.font='8px Courier New';ctx.textAlign='center';
+      ctx.fillText('Ω-'+topo, cx, cy-50);
+    });
+  }
+
+  // Draw cells
+  positions = getPositions();
+  positions.forEach(({cell,x,y,visible})=>{
+    if(!visible) return;
+    const sel = selectedCell && selectedCell.id===cell.id;
+    const r   = cell.active ? (sel?6:4.5) : 2.5;
+
+    ctx.globalAlpha = cell.active ? 1 : 0.2;
+
+    if(sel){
+      ctx.globalAlpha=1;
+      // Selection ring pulse
+      ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);
+      ctx.strokeStyle=TOPO_COLORS[cell.topo]+'88';
+      ctx.lineWidth=1;ctx.stroke();
+      ctx.beginPath();ctx.arc(x,y,14,0,Math.PI*2);
+      ctx.strokeStyle=TOPO_COLORS[cell.topo]+'33';
+      ctx.lineWidth=0.5;ctx.stroke();
+    }
+
+    drawFractalGlyph(ctx, x, y, r, cell.topo);
+    ctx.globalAlpha=1;
+  });
+}
+
+// ── HOVER ─────────────────────────────────────────────────────
+function getHit(mx,my){
+  let best=null, bestD=Infinity;
+  positions.forEach(({cell,x,y,visible})=>{
+    if(!visible) return;
+    const d=Math.hypot(mx-x,my-y);
+    if(d<14 && d<bestD){ bestD=d; best={cell,x,y}; }
+  });
+  return best;
+}
+
+canvas.addEventListener('mousemove',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const hit=getHit(mx,my);
+  if(hit){
+    hoverEl.style.display='block';
+    hoverEl.style.left=Math.min(mx+10, W-110)+'px';
+    hoverEl.style.top=Math.max(my-22, 4)+'px';
+    hoverEl.textContent='#'+hit.cell.id+' Ω-'+hit.cell.topo;
+    canvas.style.cursor='pointer';
+  } else {
+    hoverEl.style.display='none';
+    canvas.style.cursor='default';
+  }
+});
+
+// ── TOUCH HOVER (mobile fix) ───────────────────────────────────
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect();
+  const t=e.touches[0];
+  const mx=t.clientX-rect.left, my=t.clientY-rect.top;
+  const hit=getHit(mx,my);
+  if(hit){
+    hoverEl.style.display='block';
+    hoverEl.style.left=Math.min(mx+10,W-110)+'px';
+    hoverEl.style.top=Math.max(my-22,4)+'px';
+    hoverEl.textContent='#'+hit.cell.id+' Ω-'+hit.cell.topo;
+  } else { hoverEl.style.display='none'; }
+},{passive:false});
+
+// ── SELECT ────────────────────────────────────────────────────
+function selectCell(cell){
+  selectedCell=cell;
+  draw();
+  updateCellInfo(cell);
+  renderLanguage(cell);
+  renderCousins(cell);
+  // Broadcast to bridge
+  try{
+    localStorage.setItem('cgf_selected_cell', JSON.stringify({
+      id:'CGF-'+String(cell.id).padStart(3,'0'),
+      df:cell.df, omega:cell.topo, rho:cell.rho, source:'CELL_SPACE'
+    }));
+  }catch(e){}
+}
+
+canvas.addEventListener('click',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const hit=getHit(e.clientX-rect.left, e.clientY-rect.top);
+  if(hit) selectCell(hit.cell);
+});
+
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect();
+  const t=e.touches[0];
+  const hit=getHit(t.clientX-rect.left, t.clientY-rect.top);
+  if(hit) selectCell(hit.cell);
+},{passive:false});
+
+// ── CELL INFO ─────────────────────────────────────────────────
+function densityClass(df){
+  if(df<1.33) return{name:'SPARSE',   color:'#4af'};
+  if(df<1.67) return{name:'MID',      color:'#0f9'};
+  return              {name:'DENSE',   color:'#fa4'};
+}
+
+function updateCellInfo(cell){
+  const dc=densityClass(cell.df);
+  document.getElementById('ci-id').textContent=
+    'CELL #'+cell.id+' · Ω-'+cell.topo+(cell.active?' · ✦ HAND-AUTHORED':' · ○ PENDING');
+  document.getElementById('ci-meta').textContent=
+    'Df = '+cell.df+'   ·   ρ = '+cell.rho+'   ·   Density = '+dc.name;
+
+  document.getElementById('met-df').textContent=cell.df;
+  document.getElementById('met-df').style.color=dc.color;
+  document.getElementById('met-om').textContent='Ω-'+cell.topo;
+  document.getElementById('met-om').style.color=TOPO_COLORS[cell.topo];
+  document.getElementById('met-rh').textContent=cell.rho;
+  document.getElementById('met-st').textContent=cell.active?'AUTHORED':'PENDING';
+  document.getElementById('met-st').style.color=cell.active?'#0f9':'#556';
+  document.getElementById('met-dn').textContent=dc.name;
+  document.getElementById('met-dn').style.color=dc.color;
+}
+
+// ── FRACTAL LANGUAGE ENGINE ───────────────────────────────────
+// The language is NOT generated — it is PARSED FROM the identity triple
+// Each triple maps to a unique symbolic sequence the way DNA codons map to proteins
+// The computation is symbolic, not numerical — the fractal geometry encodes the word
+
+function buildAlphaStrand(cell){
+  const codon = TOPO_CODON[cell.topo] || 'UNK·?';
+  const base  = TOPO_BASE[cell.topo]  || 'X0';
+  const df    = cell.df;
+  const rho   = cell.rho;
+
+  // Df encodes strand density — more characters in the sequence
+  const density = Math.round((df-1.0)*12)+4;
+  // ρ encodes recursion — how many times the codon echoes
+  const echoes  = rho;
+
+  let strand='';
+  const dfBits = df.toFixed(3).replace('.','');
+
+  for(let e=0;e<echoes;e++){
+    // Opening marker
+    strand += `[${base}·${e+1}]`;
+    // Codon
+    strand += codon;
+    // Df encoding — digits of Df interleaved
+    for(let d=0;d<density;d++){
+      const bit=dfBits[d%dfBits.length];
+      strand += (d%3===0?'·':'')+bit;
+    }
+    // Recursion terminator
+    strand += `·Δ${rho}·`;
+    if(e<echoes-1) strand+=' | ';
+  }
+  return strand;
+}
+
+function buildBinaryStrand(cell){
+  const base = parseInt(TOPO_BASE[cell.topo]||'65',16)||65;
+  const df100= Math.round(cell.df*100);
+  const rho  = cell.rho;
+
+  let bits='';
+  // Encode: base byte XOR df XOR rho, repeat across ρ layers
+  for(let layer=0;layer<rho;layer++){
+    const val = (base ^ (df100 >> layer) ^ (rho << layer)) & 0xFF;
+    const b   = val.toString(2).padStart(8,'0');
+    // Interleave signal and noise
+    bits += b + (layer<rho-1?' ':' ');
+    // Add df-driven filler
+    const fill=Math.round((cell.df-1.0)*4);
+    for(let f=0;f<fill;f++){
+      const fv=((val*f)^(df100))&0xFF;
+      bits+=fv.toString(2).padStart(8,'0')+' ';
+    }
+  }
+  return bits.trim();
+}
+
+let langAnimId=null;
+function renderLanguage(cell){
+  if(langAnimId) clearInterval(langAnimId);
+  document.getElementById('lang-status').textContent='PARSING · Ω-'+cell.topo+'·Df='+cell.df+'·ρ='+cell.rho;
+
+  // Highlight active codon row
+  document.querySelectorAll('#codon-table tr').forEach(r=>r.classList.remove('active-codon'));
+  const activeRow=document.getElementById('cd-'+cell.topo);
+  if(activeRow) activeRow.classList.add('active-codon');
+
+  const alpha=buildAlphaStrand(cell);
+  const beta =buildBinaryStrand(cell);
+
+  // Animate strand-α character by character
+  const seqEl =document.getElementById('seq-stream');
+  const binEl =document.getElementById('bin-stream');
+  seqEl.innerHTML='';
+  binEl.textContent='';
+  binEl.classList.add('active');
+
+  let ai=0;
+  langAnimId=setInterval(()=>{
+    if(ai<alpha.length){
+      const ch=alpha[ai];
+      // Color by character type
+      let cls='t-sp';
+      if(/[0-9]/.test(ch))      cls='t-df';
+      else if(/[Ω∿✕◎⊞∴◁⊗⋔·Δ]/.test(ch)) cls='t-om';
+      else if(/[A-H]/.test(ch)) cls='t-rh';
+      else if(/[\[\]|]/.test(ch)) cls='t-bin';
+      seqEl.innerHTML+=`<span class="${cls}">${ch}</span>`;
+      ai++;
+    } else {
+      clearInterval(langAnimId);
+      langAnimId=null;
+      document.getElementById('lang-status').textContent='DECODED · '+alpha.length+' SYMBOLS · '+beta.split(' ').length+' BINARY WORDS';
+    }
+  }, 18);
+
+  // Binary renders after a short delay
+  setTimeout(()=>{
+    binEl.textContent=beta;
+  }, 400);
+}
+
+// ── COUSIN FINDER ─────────────────────────────────────────────
+function renderCousins(cell){
+  const cousins = CELLS
+    .filter(c=>c.active && c.id!==cell.id && c.topo===cell.topo)
+    .map(c=>{
+      const dDf=Math.abs(c.df-cell.df);
+      const dRh=Math.abs(c.rho-cell.rho)/6;
+      return{...c, delta:Math.sqrt(dDf*dDf+dRh*dRh)};
+    })
+    .sort((a,b)=>a.delta-b.delta)
+    .slice(0,8);
+
+  const strip=document.getElementById('cousin-strip');
+  if(!cousins.length){
+    strip.innerHTML='<div style="font-size:8px;color:var(--dim2);letter-spacing:0.15em">NO COUSINS IN AUTHORED CORPUS</div>';
+    return;
+  }
+  strip.innerHTML=cousins.map(c=>
+    `<div class="cousin-chip" onclick="selectById(${c.id})" title="Δ=${c.delta.toFixed(4)}">#${c.id}·ρ${c.rho}·${c.df}</div>`
+  ).join('');
+}
+
+function selectById(id){
+  const cell=CELLS.find(c=>c.id===id);
+  if(cell) selectCell(cell);
+}
+
+// ── CONTROLS ──────────────────────────────────────────────────
+document.getElementById('topo-filter').addEventListener('change',draw);
+document.getElementById('view-mode').addEventListener('change',draw);
+document.getElementById('show-mode').addEventListener('change',draw);
+
+// ── RESIZE ────────────────────────────────────────────────────
+const ro=new ResizeObserver(()=>resize());
+ro.observe(wrap);
+setTimeout(()=>resize(),60);
+
+// Expose for cousin chips
+window.selectById=selectById;
+</script>
+</body>
+</html>
