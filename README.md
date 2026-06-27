@@ -85,4 +85,4 @@ Physical index cards are the **primary ledger**. This repo is the digital record
 - **Author:** Sean Rangel
 - **Reddit:** [u/Cyrus9811](https://www.reddit.com/user/Cyrus98111)
 - **Card photos:** 
-196 index cards  https://photos.app.goo.gl/o8YnUPnn1CLzreRz5
+196 index cards  https://photos.app.goo.gl/o8YnUPnn1CLzreRz5.      Project is on hold until I complete all my 256 index cards.
