@@ -83,6 +83,6 @@ Each `.html` file is self-contained. **Download and open locally** — no build 
 Physical index cards are the **primary ledger**. This repo is the digital record.
 
 - **Author:** Sean Rangel
-- **Reddit:** [u/Cyrus9811](https://www.reddit.com/user/Cyrus98111)
+- **Reddit:** [u/](https://www.reddit.com/user/)
 - **Card photos:** 
-196 index cards  https://photos.app.goo.gl/o8YnUPnn1CLzreRz5
+200 index cards  https://photos.app.goo.gl/YqH8BNKudkpYgW4EA
