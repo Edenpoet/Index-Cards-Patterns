@@ -1,8 +1,8 @@
 # CGF · CELL SPACE · FRACTAL LANGUAGE CORPUS
-## SYMBOLIC SEQUENCE PARSER · ALL 178 AUTHORED CELLS
+## SYMBOLIC SEQUENCE PARSER · ALL 200 AUTHORED CELLS
 
 **Author:** Sean Rangel · 08·17·1998 · SA·TX  
-**Corpus:** 178 / 256 cells · hand-drawn index cards · no algorithm  
+**Corpus:** 200 / 256 cells · hand-drawn index cards · no algorithm  
 **Schema:** `[BASE·ECHO]CODON·Df-DIGITS·Δρ` × ρ recursion layers  
 **Codon Map:** ORGANIC=ORG·∿ | CROSS=CRS·✕ | MANDALA=MND·◎ | LATTICE=LAT·⊞ | FIELD=FLD·∴ | ASYMMETRIC=ASY·◁ | WEAVE=WVE·⊗ | TREE=TRE·⋔  
 **Binary Schema:** `base_byte XOR (df100 >> layer) XOR (rho << layer)` + Df-density fill words  
